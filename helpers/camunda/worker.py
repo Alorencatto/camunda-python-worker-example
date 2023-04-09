@@ -10,10 +10,10 @@ class ExternalTaskException(Exception):
     def __init__(
             self, *args, message: str, details: str = '', retry_timeout: int = 10000, **kwargs
     ):
-        """Exception to be raised when a service task fails.
-        :param message: Error message that describes the reason of the failure.
-        :param details: Error description.
-        :param retry_timeout: Timeout in milliseconds until the external task becomes available.
+        """Exception genérica para exceções nas tarefas externas.
+        :param message: Mensagem de erro que descreve a razão da falha
+        :param details: Detalhes do erro.
+        :param retry_timeout: Timeout (milissegundos) até a tarefas se tornar disponível novamente.
         """
         super().__init__(*args, **kwargs)
         self.message = message
@@ -27,14 +27,14 @@ class Worker:
             self,
             url: str,
             worker_id: str,
-            max_tasks: int = 1,
+            max_tasks: int = 4,
             async_response_timeout: int = 5000
     ):
-        """Worker that fetches and completes external Camunda service tasks.
-        :param url: Camunda Rest engine URL.
-        :param worker_id: Id of the worker.
-        :param max_tasks: Maximum number of tasks the worker fetches at once.
-        :param async_response_timeout: Long polling in milliseconds.
+        """Worker que interage e completa tarefas externas no Camunda .
+        :param url: REST API URL da engine.
+        :param worker_id: Identificador do worker. Ex : 'microservice-python-ticket'.
+        :param max_tasks: Número máximo de tarefas que o worker pode assumir simultâneamente.
+        :param async_response_timeout: Tempo de intervalo na consulta na engine do Camunda (milissegundos).
         """
         self.fetch_and_lock = pycamunda.externaltask.FetchAndLock(
             url, worker_id, max_tasks, async_response_timeout=async_response_timeout
@@ -60,18 +60,16 @@ class Worker:
             topic: str,
             func: typing.Callable,
             lock_duration: int = 10000,
-            variables: typing.Iterable[str] = None,
-            deserialize_values: bool = False
+            variables: typing.Iterable[str] = None
     ):
-        """Subscribe the worker to a certain topic.
-        :param topic: The topic to subscribe to.
-        :param func: The callable that is executed for a task of the respective topic.
-        :param lock_duration: Duration the fetched tasks are locked for this worker in milliseconds.
-        :param variables: Variables to request from the Camunda process instance.
-        :param deserialize_values: Whether serializable variables values are deserialized on server
-                                   side.
+        """Inscreve o worker em um tópico específico no workflow.
+        :param topic: Tópico a se fazer a inscrição.
+        :param func: Função Python que será executada ao receber o evento.
+        :param lock_duration: Duração em milissegundos que as tarefas serão bloqueadas dentro do worker.
+        :param variables: Variávis que serão passadas para a função referente ao processo.
+
         """
-        self.fetch_and_lock.add_topic(topic, lock_duration, variables, deserialize_values)
+        self.fetch_and_lock.add_topic(topic, lock_duration, variables, False)
         self.topic_funcs[topic] = func
 
     def unsubscribe(self, topic):
@@ -84,7 +82,7 @@ class Worker:
                 break
 
     def run(self):
-        """Run the worker."""
+        """Roda o worker."""
         while not self.stopped:
             tasks = self.fetch_and_lock()
 
@@ -98,13 +96,11 @@ class Worker:
                     self.handle_failure.error_details = exc.details
                     self.handle_failure.retry_timeout = exc.retry_timeout
 
-                    # TODO : Check number of retries
                     if task.retries is None:
                         self.handle_failure.retries = 1
                     else:
                         self.handle_failure.retries = task.retries - 1
 
-                    # TODO : Implement notification on failure
                     self.handle_failure(
                         error_message=exc.message,
                         error_details=exc.details

@@ -3,7 +3,7 @@
 FROM python:3.8-slim-buster
 
 # set working directory as app
-WORKDIR /app
+WORKDIR /camunda
 
 COPY requirements.txt requirements.txt
 
@@ -13,4 +13,4 @@ COPY . .
 
 # command to run when image is executed inside a container
 CMD [ "python3", "app.py" ]
-#CMD [ "python3", "test-worflow.py" ]
+

@@ -5,155 +5,80 @@ import sys
 import typing
 from datetime import datetime
 from dotenv import load_dotenv
+import warnings
+import urllib3
+
 
 import pycamunda.variable
 
-from camunda.helpers.camunda import worker
-from camunda.helpers.camunda.worker import ExternalTaskException
+from helpers.camunda import worker
+from helpers.camunda.worker import ExternalTaskException
 
 import pycamunda.processdef
 import pycamunda.processinst
 import pycamunda.task
 from helpers.database.mongodb import Database
-from helpers.decorator.logging import logger,apiTransaction
+from helpers.decorator.logging import logger, apiTransaction, task
 from helpers.api.generic import APIRequest
-
-# TODO : Default error handler
-# TODO : Forçar raise de error para entender o comportamento
-# TODO : Container on docker
 
 load_dotenv()
 
-
-@logger
-def generate_random_number(
-        range_min: pycamunda.variable.Variable, range_max: pycamunda.variable.Variable
-) -> typing.Dict[str, int]:
-    """
-    TODO
-    :param range_min:
-    :param range_max:
-    :return:
-    """
-    try:
-        number = random.randrange(range_min.value, range_max.value)
-    except ValueError:
-        raise worker.ExternalTaskException(message='invalid input')
-
-    return {'number': number}
+warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
 
-@logger
-def print_number_greater_than_2(number: pycamunda.variable.Variable) -> typing.Dict:
-    """
-    TODO
-    :param number:
-    :return:
-    """
-    try:
-        Database.initialize()
 
-        Database.insert("camunda_dev", {"file": str(__file__), "number": number.value, "updated_at": datetime.now()})
 
-    except Exception:
-        raise ExternalTaskException(message='invalid input')
+@task
+def handleRequestValidation(v_url: pycamunda.variable.Variable, v_status_code: pycamunda.variable.Variable) -> dict:
+    print("Validating...")
+
+    if 'io' in v_url.value:
+        raise ExternalTaskException(message="Invalid url")
 
     return {}
 
 
-@logger
-def print_number(number: pycamunda.variable.Variable) -> typing.Dict:
-    """
-    TODO
-    :param number:
-    :return:
-    """
-    try:
-        Database.initialize()
-
-        Database.insert("camunda_dev", {"number": number.value})
-
-    except Exception:
-        raise ExternalTaskException(message='invalid input')
+@task
+def handleBException(responseStatusCode: pycamunda.variable.Variable) -> dict:
+    print(f"Handling business exception ({responseStatusCode.value})...")
 
     return {}
 
 
-@logger
-@apiTransaction
-def test_task(range_min: pycamunda.variable.Variable, range_max: pycamunda.variable.Variable) -> dict:
-    """"""
-    print("Starting testTask...")
+@task
+def handleFinalProcess(responseStatusCode: pycamunda.variable.Variable) -> dict:
+    print(f"Status code : {responseStatusCode.value}")
 
-    # r = Database.find("camunda_dev", {})
-    # print(r)
+    a
 
-    api_request : APIRequest = APIRequest(base_url="https://jsonplaceholder.typicode.comm")
-    r = api_request(method="GET", route="/posts")
-
-    print(r.json())
+    Database.initialize()
+    Database.insert("camunda_dev", {"responseStatusCode": responseStatusCode.value, "updated_at": datetime.now()})
 
     return {}
-
-
-@logger
-def test_end_process(number: pycamunda.variable.Variable) -> dict:
-    """"""
-    return {}
-
-
-def start_instance(url: str) -> None:
-    start_instance = pycamunda.processdef.StartInstance(url=url, key='Process_0l0vhr7')
-    start_instance.add_variable(name='range_min', value=0)
-    start_instance.add_variable(name='range_max', value=10)
-    process_instance = start_instance()
 
 
 if __name__ == '__main__':
-    # Call instance start
-    # start_instance()
-
     camunda_base_url: str = os.environ.get("CAMUNDA_HOST")
-    worker_id = '1'
-    #
-    # api_request: APIRequest = APIRequest(base_url="https://jsonplaceholder.typicode.comm")
-    # r = api_request(method="GET", route="/posts")
-    #
-    # print(r.json())
-    #
-    # sys.exit(0)
+    worker_id = 'python-microservice'
 
-    # Create worker instance
     worker = worker.Worker(url=camunda_base_url, worker_id=worker_id)
 
     worker.subscribe(
-        topic='testtopic',
-        func=test_task,
-        variables=['range_min', 'range_max']
+        topic='dev-api-consume-validate-request',
+        func=handleRequestValidation,
+        variables=["v_url", "v_status_code"]
     )
 
-    # worker.subscribe(
-    #     topic='testtask1',
-    #     func=generate_random_number,
-    #     variables=['range_min', 'range_max']
-    # )
-    #
-    # worker.subscribe(
-    #     topic='testtaskreceive1',
-    #     func=print_number_greater_than_2,
-    #     variables=['number']
-    # )
-    #
-    # worker.subscribe(
-    #     topic='testtaskreceive2',
-    #     func=print_number,
-    #     variables=['number']
-    # )
-    #
-    # worker.subscribe(
-    #     topic='testendprocess',
-    #     func=test_end_process,
-    #     variables=['number']
-    # )
+    worker.subscribe(
+        topic='dev-api-consume-handle-b-exception',
+        func=handleBException,
+        variables=["responseStatusCode"]
+    )
+
+    worker.subscribe(
+        topic='dev-api-consume-final-process',
+        func=handleFinalProcess,
+        variables=["responseStatusCode"]
+    )
 
     worker.run()

@@ -1,5 +1,5 @@
 from datetime import datetime,timezone
-from camunda.helpers.camunda.worker import ExternalTaskException
+from ..camunda.worker import ExternalTaskException
 
 
 def logger(fn):
@@ -13,6 +13,8 @@ def logger(fn):
         called_at : datetime = datetime.now(timezone.utc)
         to_execute = fn(*args, **kwargs)
 
+        print(fn.__dict__)
+
         # TODO : Implement Insert on MongoDB
         print('{0} executed. Logged at {1}'.format(fn.__name__, called_at))
         return to_execute
@@ -21,7 +23,7 @@ def logger(fn):
 
 def task(fn):
     """
-    Logger decorator
+    Decorator para tratamento de Exception no Camunda
     :param fn:
     :return:
     """
@@ -31,6 +33,8 @@ def task(fn):
         try:
             called_at: datetime = datetime.now(timezone.utc)
             to_execute = fn(*args, **kwargs)
+
+            # print(*kwargs.items())
 
             # TODO : Implement Insert on MongoDB
             print('{0} executed. Logged at {1}'.format(fn.__name__, called_at))
