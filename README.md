@@ -8,5 +8,5 @@ docker build -t microservice-process-ticket .
 
 ## Running docker image  
 ```commandline
-docker run microservice-process-ticket:latest --name=microservice-process-ticket -d
+docker run microservice-process-ticket:latest -d
 ```

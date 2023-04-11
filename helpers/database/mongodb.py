@@ -17,19 +17,6 @@ class Database(object):
 
     @staticmethod
     def insert(collection: str, data: Union[List[dict], dict]) -> None:
-        Database.DATABASE[collection].insert(data)
+        # Database.DATABASE[collection].insert(data)
+        Database.DATABASE['camunda_dev'].insert(data)
 
-    @staticmethod
-    def find(collection : str, query : dict,) -> List[dict]:
-        #TODO Mudar aqui o método de limit
-
-        try:
-
-            if query:
-                return Database.DATABASE[collection].find(query)
-
-            return Database.DATABASE[collection].find({})
-
-        except TypeError as e:
-            print(f"Error on database get... | {str(e)}")
-            return []

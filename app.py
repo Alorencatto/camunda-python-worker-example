@@ -48,8 +48,8 @@ def handleBException(responseStatusCode: pycamunda.variable.Variable) -> dict:
 @task
 def handleFinalProcess(responseStatusCode: pycamunda.variable.Variable) -> dict:
     print(f"Status code : {responseStatusCode.value}")
-
-    a
+    mongo_uri : str = os.environ.get("MONGO_DB_URI")
+    print(f"MongoDB URI : {mongo_uri}")
 
     Database.initialize()
     Database.insert("camunda_dev", {"responseStatusCode": responseStatusCode.value, "updated_at": datetime.now()})
@@ -58,6 +58,7 @@ def handleFinalProcess(responseStatusCode: pycamunda.variable.Variable) -> dict:
 
 
 if __name__ == '__main__':
+
     camunda_base_url: str = os.environ.get("CAMUNDA_HOST")
     worker_id = 'python-microservice'
 
